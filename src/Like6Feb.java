@@ -1,13 +1,18 @@
+import java.awt.Point;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.intermine.metadata.Model;
 import org.intermine.pathquery.Constraints;
 import org.intermine.pathquery.OrderDirection;
 import org.intermine.pathquery.OuterJoinStatus;
 import org.intermine.pathquery.PathQuery;
+import org.intermine.util.PropertiesUtil;
 import org.intermine.webservice.client.core.ServiceFactory;
 import org.intermine.webservice.client.services.QueryService;
 
@@ -28,7 +33,7 @@ import java.util.Properties;
 // Finger print
 
 //////////////////////////////////////////////////////////////////////////////////
-public class Like27Jan {
+public class Like6Feb {
 	
 	private static final String ROOT = "http://beta.flymine.org/beta/service";
 
@@ -39,9 +44,16 @@ public class Like27Jan {
      */
 	
     public static void main(String[] args) throws IOException {
+    	
+    	// where the config file is?
+    	// user typed in
+    	// extra constraints supplied by user
+    	// [future] - show me genes like eve that are in the organism: mouse
+    	
     	long t1 = System.currentTimeMillis();
     	// Read in the configuration file    	
     	Properties prop = new Properties();
+    	// put in config file (later)
         String fileName = "/home/selma/workspace/LIKE/annotationConfig.txt";
         InputStream is = new FileInputStream(fileName);
         prop.load(is);
@@ -49,6 +61,17 @@ public class Like27Jan {
         String[] views = new String[10];
         int[] saveViews = new int[10];
         int countViews = 2;
+        
+// configs = list of the different things you are going to compare
+        // annotation, descriptors
+        // loop through the properties and buiild up a configuration 
+//        Enumeration<?> propNames = props.propertyNames();
+//
+//        while (propNames.hasMoreElements()) {
+//            String mineId =  (String) propNames.nextElement();
+//            mineId = mineId.substring(0, mineId.indexOf("."));
+//            Properties mineProps = PropertiesUtil.stripStart(mineId,
+            		
         views[0] = prop.getProperty("recommendation.engine.query.1.identifier");
         views[1] = prop.getProperty("recommendation.engine.query.1.name");
         saveViews[0] = 0;
@@ -86,6 +109,9 @@ public class Like27Jan {
 //            countViews += 1;
         }
     	
+        // now have list of configs
+        // save the config but keep a list of the views
+        
         // Build the query
         ServiceFactory factory = new ServiceFactory(ROOT);
         Model model = factory.getModel();
@@ -102,6 +128,8 @@ public class Like27Jan {
         // Add orderby
         query.addOrderBy(views[0], OrderDirection.ASC);
 
+        // "filters" are going to come from the form itself, not the config file
+        
         // Filter the results with the following constraints:
         int constraintA = 0;
         if (prop.getProperty("recommendation.engine.constraint.1.required").equals("yes")){
@@ -124,6 +152,8 @@ public class Like27Jan {
         // Specify how these constraints should be combined.
         query.setConstraintLogic("A and B");
 
+        // remove this section
+        
         // Outer Joins
         // Show all information about these relationships if they exist, but do not require that they exist.
         if (prop.getProperty("recommendation.engine.query.2.required").equals("yes") 
@@ -156,29 +186,18 @@ public class Like27Jan {
         long t2 = System.currentTimeMillis();
         // Generate the matrices out of the query
         Iterator<List<Object>> rows = service.getRowListIterator(query);
-        Iterator<List<Object>> countRows = service.getRowListIterator(query);
         String tmp;
         int countRow = 0;
         int countColumnPD = 0;
         int countColumnP = 0;
         int countColumnT = 0;
-        int firstColumnPD = 0;
-        int firstColumnP = 0;
-        int firstColumnT = 0;
-        int firstRow = 0;
-        int count = 0;
         out.print(service.getCount(query) + "\n");
-        while (countRows.hasNext()) {
-        	countRows.next();
-        	count += 1;
-        }
-        String[][] matrixBuildPD = new String[service.getCount(query)][count+1];
-        String[][] matrixBuildP = new String[service.getCount(query)][count+1];
-        String[][] matrixBuildT = new String[service.getCount(query)][count+1];
-        String[][] matrixBuildL = new String[service.getCount(query)][2];
+//        String format = "%-13.13s | %-13.13s | %-13.13s | %-13.13s | %-13.13s | %-13.13s\n";
         	
-//        out.print(service.getCount(query) + "\n");
-//      String format = "%-13.13s | %-13.13s | %-13.13s | %-13.13s | %-13.13s | %-13.13s\n";
+        Map<Point, String> matrixPD = new HashMap<Point, String>();
+        Map<Point, String> matrixP = new HashMap<Point, String>();
+        Map<Point, String> matrixT = new HashMap<Point, String>();
+        Map<Point, String> matrixL = new HashMap<Point, String>();
 
         while (rows.hasNext()) {
             List<Object> row = rows.next();
@@ -186,306 +205,235 @@ public class Like27Jan {
         	for (int i = 0; i < countViews; i++){
         		tmp = row.get(i).toString();
         		if (i==0){
-        			if (firstRow == 0){
-        				matrixBuildPD[0][0] = tmp;
-        				matrixBuildP[0][0] = tmp;
-        				matrixBuildT[0][0] = tmp;
-        				matrixBuildL[0][0] = tmp;
-        				firstRow += 1;
-        			}
-        			else {
-        				int saved = 0;
-	        			for (int j = 0; j <= countRow; j++){
-	        					if (tmp.equals(matrixBuildPD[j][0]) 
-	        							&& saved == 0){
-	        						saved += 1;
-	        					}
-	        					else if (j == countRow && saved == 0){
-	        						countRow += 1;
-	        	        			matrixBuildPD[countRow][0] = tmp;
-	        	        			matrixBuildP[countRow][0] = tmp;
-	        	        			matrixBuildT[countRow][0] = tmp;
-	        	        			matrixBuildL[countRow][0] = tmp;
-	        	        			saved += 1;
-	        					}
-	        			}
-        			}
+	   				if (!matrixPD.containsValue(tmp)){
+	       				matrixPD.put(new Point(countRow, 0), tmp);
+	       				matrixP.put(new Point(countRow, 0), tmp);
+        				matrixT.put(new Point(countRow, 0), tmp);
+    					matrixL.put(new Point(countRow, 0), tmp);
+	       				countRow += 1;
+	   				}
         		}
         		
         		// Protein domains
         		if (saveViews[i]==2 && tmp!="null"){
-        			if (firstColumnPD == 0){
-        				matrixBuildPD[countRow][1] = tmp;
-        				firstColumnPD = 1;
-        				countColumnPD += 1;
+        			int saved = 0;
+        			Point p = new Point(countRow-1, countColumnPD+1);
+        			for (Map.Entry<Point, String> entry : matrixPD.entrySet()){
+        				if (saved == 0 && tmp.equals(entry.getValue())){
+        					p.y = entry.getKey().y;
+        					saved += 1;
+        				}
         			}
-        			else {
-        				int tmpColumn = countColumnPD+1;
-        				int saved = 0;
-	        			for (int j = 0; j <= countRow; j++){
-	        				for (int k = 0; k <= (tmpColumn); k++){
-	        					if (tmp.equals(matrixBuildPD[j][k]) 
-	        							&& saved == 0){
-	        						matrixBuildPD[countRow][k] = tmp;
-	        						saved += 1;
-	        					}
-	        					else if (j == countRow && k == countColumnPD 
-	        							&& saved == 0){
-	        						countColumnPD += 1;
-	        	        			matrixBuildPD[countRow][countColumnPD] = tmp;
-	        	        			saved += 1;
-	        					}
-	        				}
-	        			}
+        			matrixPD.put(p, tmp);
+        			if (p.y == countColumnPD+1){
+        				countColumnPD += 1;
         			}
         		}
         		
         		// Pathways
         		if (saveViews[i]==4 && tmp!="null"){
-        			if (firstColumnP == 0){
-        				matrixBuildP[countRow][1] = tmp;
-        				firstColumnP = 1;
-        				countColumnP += 1;
+        			int saved = 0;
+        			Point p = new Point(countRow-1, countColumnP+1);
+        			for (Map.Entry<Point, String> entry : matrixP.entrySet()){
+        				if (saved == 0 && tmp.equals(entry.getValue())){
+        					p.y = entry.getKey().y;
+        					saved += 1;
+        				}
         			}
-        			else {
-        				int tmpColumn = countColumnP+1;
-        				int saved = 0;
-	        			for (int j = 0; j <= countRow; j++){
-	        				for (int k = 0; k <= (tmpColumn); k++){
-	        					if (tmp.equals(matrixBuildP[j][k]) 
-	        							&& saved == 0){
-	        						matrixBuildP[countRow][k] = tmp;
-	        						saved += 1;
-	        					}
-	        					else if (j == countRow && k == countColumnP
-	        							&& saved == 0){
-	        						countColumnP += 1;
-	        	        			matrixBuildP[countRow][countColumnP] = tmp;
-	        	        			saved += 1;
-	        					}
-	        				}
-	        			}
+        			matrixP.put(p, tmp);
+        			if (p.y == countColumnP+1){
+        				countColumnP += 1;
         			}
         		}
         		
         		// Transcripts
         		if (saveViews[i]==6 && tmp!="null"){
-        			if (firstColumnT == 0){
-        				matrixBuildT[countRow][1] = tmp;
-        				firstColumnT = 1;
+//        			if (!matrixT.containsValue(tmp)){
         				countColumnT += 1;
-        			}
-        			else {
-        				int tmpColumn = countColumnT+1;
-        				int saved = 0;
-	        			for (int j = 0; j <= countRow; j++){
-	        				for (int k = 0; k <= (tmpColumn); k++){
-	        					if (tmp.equals(matrixBuildT[j][k]) 
-	        							&& saved == 0){
-	        						matrixBuildT[countRow][k] = tmp;
-	        						saved += 1;
-	        					}
-	        					else if (j == countRow && k == countColumnT
-	        							&& saved == 0){
-	        						countColumnT += 1;
-	        	        			matrixBuildT[countRow][countColumnT] = tmp;
-	        	        			saved += 1;
-	        					}
-	        				}
-	        			}
-        			}
+    					matrixT.put(new Point(countRow-1, countColumnT), tmp);
+//        			}
+//        			else {
+//        				int saved = 0;
+//        				for (int j = 0; j <= countRow; j++){
+//        					for (int k = 0; k <= countColumnT+1; k++){
+//        						if (saved == 0 && tmp.equals(matrixT.get(new Point(j, k)))){
+//        							matrixT.put(new Point(countRow-1, k), tmp);
+//        							saved += 1;
+//        						}
+//        					}
+//        				}
+//        			}
         		}
         		
         		// Length
         		if (saveViews[i]==8 && tmp!="null"){
-        			matrixBuildL[countRow][1] = tmp;
+        			matrixL.put(new Point(countRow-1, 1), tmp);
         		}
-        	}
-        }
-        
-        // Trim the matrices
-        String[][] matrixPD = new String[countRow+1][countColumnPD+1];
-        for (int i = 0; i < countRow+1; i++){
-        	for (int j = 0; j < countColumnPD+1; j++){
-        		matrixPD[i][j] = matrixBuildPD[i][j];
-        	}
-        }
-        
-        String[][] matrixP = new String[countRow+1][countColumnP+1];
-        for (int i = 0; i < countRow+1; i++){
-        	for (int j = 0; j < countColumnP+1; j++){
-        		matrixP[i][j] = matrixBuildP[i][j];
-        	}
-        }
-        
-        String[][] matrixT = new String[countRow+1][countColumnT+1];
-        for (int i = 0; i < countRow+1; i++){
-        	for (int j = 0; j < countColumnT+1; j++){
-        		matrixT[i][j] = matrixBuildT[i][j];
-        	}
-        }
-        
-        String[][] matrixL = new String[countRow+1][2];
-        for (int i = 0; i < countRow+1; i++){
-        	for (int j = 0; j < 2; j++){
-        		matrixL[i][j] = matrixBuildL[i][j];
         	}
         }
         
         long t3 = System.currentTimeMillis();
         
         // Output of the data storehouse results
-        out.print("\nData about Protein Domains: \n");
-        for (int i = 0; i < matrixPD.length; i++) {
-            for (int j = 0; j < matrixPD[0].length; j++) {
-                out.print(matrixPD[i][j] + " ");
-            }
-            out.print("\n");
-        }
-        out.print("\nData about Pathways: \n");
-        for (int i = 0; i < matrixP.length; i++) {
-          	for (int j = 0; j < matrixP[0].length; j++) {
-              	out.print(matrixP[i][j] + " ");
-          	}
-          	out.print("\n");
-      	}
-//        out.print("\nData about Transcripts: \n");
-//        for (int i = 0; i < matrixT.length; i++) {
-//          	for (int j = 0; j < matrixT[0].length; j++) {
-//              	out.print(matrixT[i][j] + " ");
-//          	}
-//          	out.print("\n");
-//      	}
-//        out.print("\nData about Length: \n");
-//        for (int i = 0; i < matrixL.length; i++) {
-//          	for (int j = 0; j < matrixL[0].length; j++) {
-//              	out.print(matrixL[i][j] + " ");
-//          	}
-//          	out.print("\n");
-//      	}
-//        out.print("\n" + service.getCount(query) + " genes including: \n"
-//        		+ views[0] + ", \n" + views[2] + ", \n" + views[4] + ", \n" + views[6] + ", \n" + views[8] + ":\n"
-//        		+ (t2 - t1) + "ms to read in the config file & query settings\n"
-//        		+ (t3 - t2) + "ms to generate matrices out of the query\n"
-//        		+ (t3 - t1) + "ms all together");
 //        out.print("\nData about Protein Domains: \n");
+//        for ( int i = 0; i < countRow; i++ ) {
+//            for ( int j = 0; j < countColumnPD+1; j++ ) { 
+//               String val = matrixPD.get(new Point(i, j));
+//               out.print(val + " ");
+//            }
+//            out.print("\n");
+//        } 
+//        out.print("\nData about Pathways: \n");
+//        for ( int i = 0; i < countRow; i++ ) {
+//        	for ( int j = 0; j < countColumnP+1; j++ ) { 
+//        		String val = matrixP.get(new Point(i, j));
+//        		out.print(val + " ");
+//        	}
+//        	out.print("\n");
+//        } 
+//        out.print("\nData about Transcripts: \n");
+//        for ( int i = 0; i < countRow; i++ ) {
+//        	for ( int j = 0; j < countColumnT+1; j++ ) { 
+//        		String val = matrixT.get(new Point(i, j));
+//        		out.print(val + " ");
+//        	}
+//        	out.print("\n");
+//        } 
+//        out.print("\nData about Length: \n");
+//        for ( int i = 0; i < countRow; i++ ) {
+//        	for ( int j = 0; j < 2; j++ ) { 
+//        		String val = matrixL.get(new Point(i, j));
+//        		out.print(val + " ");
+//        	}
+//        	out.print("\n");
+//        } 
+        
+        out.print("\n" + service.getCount(query) + " genes including: \n"
+        		+ views[0] + ", \n" + views[2] + ", \n" + views[4] + ", \n" + views[6] + ", \n" + views[8] + ":\n"
+        		+ (t2 - t1) + "ms to read in the config file & query settings\n"
+        		+ (t3 - t2) + "ms to generate matrices out of the query\n"
+        		+ (t3 - t1) + "ms all together");
+        out.print("\nData about Protein Domains: \n");
+        
         /////*** Generate the similarity matrices ***/////
-        String[][] simMatPD = new String[matrixPD.length][matrixPD[0].length];
-        String[][] normWeightedMatPD = new String[matrixPD.length][matrixPD[0].length];
-        String[][] simMatP = new String[matrixP.length][matrixP[0].length];
-        String[][] normWeightedMatP = new String[matrixP.length][matrixP[0].length];
-        String[][] simMatT = new String[matrixT.length][matrixT[0].length];
-        String[][] normWeightedMatT = new String[matrixT.length][matrixT[0].length];
-        String[][] simMatL = new String[matrixL.length][matrixL[0].length];
-        String[][] normWeightedMatL = new String[matrixL.length][matrixL[0].length];
-        for (int i = 2; i < countViews; i++){
-	        if (saveViews[i] == 2){ // PD
-	        	simMatPD = calculateMatrix(matrixPD);
-	          	out.print("\nNumber of Protein Domains in common: \n");
-	          	for (int j = 0; j < simMatPD.length; j++) {
-	          		for (int k = 0; k < simMatPD[0].length; k++) {
-	          			out.print(simMatPD[j][k] + " ");
-	          		}
-	          		out.print("\n");
-	          	}
-	          	String[][] normMatPD = normalize(simMatPD);
-	            normWeightedMatPD = addWeigth(normMatPD, Float.parseFloat(prop.getProperty("recommendation.engine.query.2.weight")));
-	            out.print("\nNormalised Number of Protein Domains in common: \n");
-	            for (int j = 0; j < normWeightedMatPD.length; j++) {
-	                for (int k = 0; k < normWeightedMatPD[0].length; k++) {
-	                    out.print(normWeightedMatPD[j][k] + " ");
-	                }
-	                out.print("\n");
-	            }
-	          	
-	        }
-	        if (saveViews[i] == 4){ // P
-	        	simMatP = calculateMatrix(matrixP);
-	            out.print("\nNumber of Pathways in common: \n");
-	            for (int j = 0; j < simMatP.length; j++) {
-	                for (int k = 0; k < simMatP[0].length; k++) {
-	                    out.print(simMatP[j][k] + " ");
-	                }
-	                out.print("\n");
-	            }
-	        	String[][] normMatP = normalize(simMatP);
-	            normWeightedMatP = addWeigth(normMatP, Float.parseFloat(prop.getProperty("recommendation.engine.query.3.weight")));
-	            out.print("\nNormalised Number of Pathways in common: \n");
-	            for (int j = 0; j < normWeightedMatP.length; j++) {
-	                for (int k = 0; k < normWeightedMatP[0].length; k++) {
-	                    out.print(normWeightedMatP[j][k] + " ");
-	                }
-	                out.print("\n");
-	            }
-	        }
-	        if (saveViews[i] == 6){ // T
-	        	simMatT = calculateMatrixDif(calculateMatrixT(matrixT));
-//	            out.print("\nNumber of Transcripts differences: \n");
-//	            for (int j = 0; j < simMatT.length; j++) {
-//	                for (int k = 0; k < simMatT[0].length; k++) {
-//	                    out.print(simMatT[j][k] + " ");
+        Map<Point, String> simMatPD = new HashMap<Point, String>();
+        Map<Point, String> normWeightedMatPD = new HashMap<Point, String>();
+        Map<Point, String> simMatP = new HashMap<Point, String>();
+        Map<Point, String> normWeightedMatP = new HashMap<Point, String>();
+        Map<Point, String> simMatT = new HashMap<Point, String>();
+        Map<Point, String> normWeightedMatT = new HashMap<Point, String>();
+        Map<Point, String> simMatL = new HashMap<Point, String>();
+        Map<Point, String> normWeightedMatL = new HashMap<Point, String>();
+        
+//        for (int i = 2; i < countViews; i++){
+//	        if (saveViews[i] == 2){ // PD
+//	        	simMatPD = calculateMatrix(matrixPD);
+//	          	out.print("\nNumber of Protein Domains in common: \n");
+//	          	for (int j = 0; j < countRow; j++) {
+//	          		for (int k = 0; k < countColumnPD+1; k++) {
+//	          			String val = matrixPD.get(new Point(i, j));
+//		                   out.print(val + " ");
+//	          		}
+//	          		out.print("\n");
+//	          	}	          	
+//	          	String[][] normMatPD = normalize(simMatPD);
+//	            normWeightedMatPD = addWeigth(normMatPD, Float.parseFloat(prop.getProperty("recommendation.engine.query.2.weight")));
+//	            out.print("\nNormalised Number of Protein Domains in common: \n");
+//	            for (int j = 0; j < normWeightedMatPD.length; j++) {
+//	                for (int k = 0; k < normWeightedMatPD[0].length; k++) {
+//	                    out.print(normWeightedMatPD[j][k] + " ");
 //	                }
 //	                out.print("\n");
 //	            }
-	            String[][] normMatT = normalize(simMatT);
-	            String[][] revNormMatT = reverse(normMatT);
-	            normWeightedMatT = addWeigth(revNormMatT, Float.parseFloat(prop.getProperty("recommendation.engine.query.4.weight")));
-//	            out.print("\nNormalised Number of Transcripts differences: \n");
-//	            for (int j = 0; j < normWeightedMatT.length; j++) {
-//	                for (int k = 0; k < normWeightedMatT[0].length; k++) {
-//	                    out.print(normWeightedMatT[j][k] + " ");
-//	                }
-//	                out.print("\n");
-//	            }
-	        }
-	        if (saveViews[i] == 8){ // L
-	        	simMatL = calculateMatrixDif(matrixL);
-//	            out.print("\nNumber of Length differences: \n"); 
-//	            for (int j = 0; j < simMatL.length; j++) {
-//	                for (int k = 0; k < simMatL[0].length; k++) {
-//	                    out.print(simMatL[j][k] + " ");
-//	                }
-//	                out.print("\n");
-//	            }
-	            String[][] normMatL = normalize(simMatL);
-	            String[][] revNormMatL = reverse(normMatL);
-	            normWeightedMatL = addWeigth(revNormMatL, Float.parseFloat(prop.getProperty("recommendation.engine.query.5.weight")));
-//	            out.print("\nNormalised Number of Length differences: \n");
-//	            for (int j = 0; j < normWeightedMatL.length; j++) {
-//	                for (int k = 0; k < normWeightedMatL[0].length; k++) {
-//	                    out.print(normWeightedMatL[j][k] + " ");
-//	                }
-//	                out.print("\n");
-//	            }
-	        }
-        }
+//	          	
+//	        }
+//	        if (saveViews[i] == 4){ // P
+//	        	simMatP = calculateMatrix(matrixP);
+////	            out.print("\nNumber of Pathways in common: \n");
+////	            for (int j = 0; j < simMatP.length; j++) {
+////	                for (int k = 0; k < simMatP[0].length; k++) {
+////	                    out.print(simMatP[j][k] + " ");
+////	                }
+////	                out.print("\n");
+////	            }
+//	        	String[][] normMatP = normalize(simMatP);
+//	            normWeightedMatP = addWeigth(normMatP, Float.parseFloat(prop.getProperty("recommendation.engine.query.3.weight")));
+////	            out.print("\nNormalised Number of Pathways in common: \n");
+////	            for (int j = 0; j < normWeightedMatP.length; j++) {
+////	                for (int k = 0; k < normWeightedMatP[0].length; k++) {
+////	                    out.print(normWeightedMatP[j][k] + " ");
+////	                }
+////	                out.print("\n");
+////	            }
+//	        }
+//	        if (saveViews[i] == 6){ // T
+//	        	simMatT = calculateMatrixDif(calculateMatrixT(matrixT));
+////	            out.print("\nNumber of Transcripts differences: \n");
+////	            for (int j = 0; j < simMatT.length; j++) {
+////	                for (int k = 0; k < simMatT[0].length; k++) {
+////	                    out.print(simMatT[j][k] + " ");
+////	                }
+////	                out.print("\n");
+////	            }
+//	            String[][] normMatT = normalize(simMatT);
+//	            String[][] revNormMatT = reverse(normMatT);
+//	            normWeightedMatT = addWeigth(revNormMatT, Float.parseFloat(prop.getProperty("recommendation.engine.query.4.weight")));
+////	            out.print("\nNormalised Number of Transcripts differences: \n");
+////	            for (int j = 0; j < normWeightedMatT.length; j++) {
+////	                for (int k = 0; k < normWeightedMatT[0].length; k++) {
+////	                    out.print(normWeightedMatT[j][k] + " ");
+////	                }
+////	                out.print("\n");
+////	            }
+//	        }
+//	        if (saveViews[i] == 8){ // L
+//	        	simMatL = calculateMatrixDif(matrixL);
+////	            out.print("\nNumber of Length differences: \n"); 
+////	            for (int j = 0; j < simMatL.length; j++) {
+////	                for (int k = 0; k < simMatL[0].length; k++) {
+////	                    out.print(simMatL[j][k] + " ");
+////	                }
+////	                out.print("\n");
+////	            }
+//	            String[][] normMatL = normalize(simMatL);
+//	            String[][] revNormMatL = reverse(normMatL);
+//	            normWeightedMatL = addWeigth(revNormMatL, Float.parseFloat(prop.getProperty("recommendation.engine.query.5.weight")));
+////	            out.print("\nNormalised Number of Length differences: \n");
+////	            for (int j = 0; j < normWeightedMatL.length; j++) {
+////	                for (int k = 0; k < normWeightedMatL[0].length; k++) {
+////	                    out.print(normWeightedMatL[j][k] + " ");
+////	                }
+////	                out.print("\n");
+////	            }
+//	        }
+//        }
         
         // Merge the matrices
-        String[][] addedMat = new String[service.getCount(query)+1][service.getCount(query)+1];
-        for (int i = 2; i < countViews; i++){
-	        if (saveViews[i] == 2){
-	        	addedMat = addMatrizes(addedMat,normWeightedMatPD);
-	        }
-	        if (saveViews[i] == 4){
-	        	addedMat = addMatrizes(addedMat,normWeightedMatP);
-	        }
-	        if (saveViews[i] == 6){
-	        	addedMat = addMatrizes(addedMat,normWeightedMatT);
-	        }
-	        if (saveViews[i] == 8){
-	        	addedMat = addMatrizes(addedMat,normWeightedMatL);
-	        }
-        }
+//        String[][] addedMat = new String[service.getCount(query)+1][service.getCount(query)+1];
+//        for (int i = 2; i < countViews; i++){
+//	        if (saveViews[i] == 2){
+//	        	addedMat = addMatrizes(addedMat,normWeightedMatPD);
+//	        }
+//	        if (saveViews[i] == 4){
+//	        	addedMat = addMatrizes(addedMat,normWeightedMatP);
+//	        }
+//	        if (saveViews[i] == 6){
+//	        	addedMat = addMatrizes(addedMat,normWeightedMatT);
+//	        }
+//	        if (saveViews[i] == 8){
+//	        	addedMat = addMatrizes(addedMat,normWeightedMatL);
+//	        }
+//        }
         
         long t4 = System.currentTimeMillis();
         
-        out.print("\nAll Aspects combined: \n");
-        for (int i = 0; i < addedMat.length; i++) {
-            for (int j = 0; j < addedMat[0].length; j++) {
-                out.print(addedMat[i][j] + " ");
-            }
-            out.print("\n");
-        }
+//        out.print("\nAll Aspects combined: \n");
+//        for (int i = 0; i < addedMat.length; i++) {
+//            for (int j = 0; j < addedMat[0].length; j++) {
+//                out.print(addedMat[i][j] + " ");
+//            }
+//            out.print("\n");
+//        }
         
         // Return most similar genes
 //        String[][] mostSimilarGenes = showMostSimilarGenes(addedMat);
@@ -499,19 +447,19 @@ public class Like27Jan {
 //        }
         
         // Return the most similar set of genes
-        String testSetAll = prop.getProperty("recommendation.engine.testSet");
-        String[] testSet = testSetAll.split(",");
-        String[][] mostSimilarSet = showMostSimilarSet(addedMat, testSet);
-        mostSimilarSet = orderByHighestValues(mostSimilarSet);
-        int kNearestSet = Integer.parseInt(prop.getProperty("recommendation.engine.kNearestSet"));
-        mostSimilarSet = trimMatrix(mostSimilarSet,kNearestSet);
-        out.print("\nMost Similar Set of Genes to the testSet: \n");
-        for (int i = 0; i < mostSimilarSet.length; i++) {
-            for (int j = 0; j < mostSimilarSet[0].length; j++) {
-                out.print(mostSimilarSet[i][j] + " ");
-            }
-            out.print("\n");
-        }
+//        String testSetAll = prop.getProperty("recommendation.engine.testSet");
+//        String[] testSet = testSetAll.split(",");
+//        String[][] mostSimilarSet = showMostSimilarSet(addedMat, testSet);
+//        mostSimilarSet = orderByHighestValues(mostSimilarSet);
+//        int kNearestSet = Integer.parseInt(prop.getProperty("recommendation.engine.kNearestSet"));
+//        mostSimilarSet = trimMatrix(mostSimilarSet,kNearestSet);
+//        out.print("\nMost Similar Set of Genes to the testSet: \n");
+//        for (int i = 0; i < mostSimilarSet.length; i++) {
+//            for (int j = 0; j < mostSimilarSet[0].length; j++) {
+//                out.print(mostSimilarSet[i][j] + " ");
+//            }
+//            out.print("\n");
+//        }
         // get objects
 //        Iterator<List<Object>> objects = service.getRowListIterator(query);
 //        List<Object> mostSimilarSetObj = new ArrayList<Object>();
@@ -538,63 +486,63 @@ public class Like27Jan {
         String[][] countTotal = new String[fingerprintTmp.length][2];
         int countAspects = 0;
         for (int i = 2; i < countViews; i++){
-	        if (saveViews[i] == 2){
-	        	fingerprintTmp = orderByHighestValues(findKNearestNeighbours(simMatPD, searchedGene));
-	        	countTotal = orderByTotalLowestDifference(fingerprintTmp, findTotal(fingerprintTmp, matrixPD));
-	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
-	        	
-	        	fingerprint[0][countAspects] = "|# Common Protein Domains";
-	        	for (int j = 0; j < fingerprintTmp.length; j ++){
-	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
-	        				+ " (total " + countTotal[j][1] + ")";
-	        	}
-	        	countAspects += 1;
-	        }
-	        if (saveViews[i] == 4){
-	        	fingerprintTmp = orderByHighestValues(findKNearestNeighbours(simMatP, searchedGene));
-	        	countTotal = orderByTotalLowestDifference(fingerprintTmp, findTotal(fingerprintTmp, matrixP));
-	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
-	        	
-	        	fingerprint[0][countAspects] = "|# Common Pathways       ";
-	        	for (int j = 0; j < fingerprintTmp.length; j ++){
-	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
-	        				+ " (total " + countTotal[j][1] + ")";
-	        	}
-	        	countAspects += 1;
-	        }
-	        if (saveViews[i] == 6){
-	        	fingerprintTmp = orderByLowestValues(findKNearestNeighbours(simMatT, searchedGene));
-	        	countTotal = orderByTotalHighestDifference(fingerprintTmp, findTotal(fingerprintTmp, matrixT));
-	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
-	        	
-	        	fingerprint[0][countAspects] = "|#Transcripts differences";
-	        	for (int j = 0; j < fingerprintTmp.length; j ++){
-	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
-	        				+ " (total " + countTotal[j][1] + ")";
-	        	}
-	        	countAspects += 1;
-	        }
-	        if (saveViews[i] == 8){
-	        	fingerprintTmp = orderByLowestValues(findKNearestNeighbours(simMatL, searchedGene));
-	        	for (int j = 0; j < fingerprintTmp.length; j ++){
-	        		for (int k = 0; k < matrixL.length; k ++){
-	        			if (fingerprintTmp[j][0].equals(matrixL[k][0])){
-	        				countTotal[j][0] = matrixL[k][0];
-	        				countTotal[j][1] = matrixL[k][1];
-	        			}
-	        		}
-	        	}
-	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
-	        	
-	        	fingerprint[0][countAspects] = "| Length differences            ";
-	        	for (int j = 0; j < fingerprintTmp.length; j ++){
-	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
-	        				+ " (total " + countTotal[j][1] + ")";
-	        	}
-	        	countAspects += 1;
-	        }
+//	        if (saveViews[i] == 2){
+//	        	fingerprintTmp = orderByHighestValues(findKNearestNeighbours(simMatPD, searchedGene));
+//	        	countTotal = orderByTotalLowestDifference(fingerprintTmp, findTotal(fingerprintTmp, matrixPD));
+//	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
+//	        	
+//	        	fingerprint[0][countAspects] = "|# Common Protein Domains";
+//	        	for (int j = 0; j < fingerprintTmp.length; j ++){
+//	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
+//	        				+ " (total " + countTotal[j][1] + ")";
+//	        	}
+//	        	countAspects += 1;
+//	        }
+//	        if (saveViews[i] == 4){
+//	        	fingerprintTmp = orderByHighestValues(findKNearestNeighbours(simMatP, searchedGene));
+//	        	countTotal = orderByTotalLowestDifference(fingerprintTmp, findTotal(fingerprintTmp, matrixP));
+//	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
+//	        	
+//	        	fingerprint[0][countAspects] = "|# Common Pathways       ";
+//	        	for (int j = 0; j < fingerprintTmp.length; j ++){
+//	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
+//	        				+ " (total " + countTotal[j][1] + ")";
+//	        	}
+//	        	countAspects += 1;
+//	        }
+//	        if (saveViews[i] == 6){
+//	        	fingerprintTmp = orderByLowestValues(findKNearestNeighbours(simMatT, searchedGene));
+//	        	countTotal = orderByTotalHighestDifference(fingerprintTmp, findTotal(fingerprintTmp, matrixT));
+//	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
+//	        	
+//	        	fingerprint[0][countAspects] = "|#Transcripts differences";
+//	        	for (int j = 0; j < fingerprintTmp.length; j ++){
+//	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
+//	        				+ " (total " + countTotal[j][1] + ")";
+//	        	}
+//	        	countAspects += 1;
+//	        }
+//	        if (saveViews[i] == 8){
+//	        	fingerprintTmp = orderByLowestValues(findKNearestNeighbours(simMatL, searchedGene));
+//	        	for (int j = 0; j < fingerprintTmp.length; j ++){
+//	        		for (int k = 0; k < matrixL.length; k ++){
+//	        			if (fingerprintTmp[j][0].equals(matrixL[k][0])){
+//	        				countTotal[j][0] = matrixL[k][0];
+//	        				countTotal[j][1] = matrixL[k][1];
+//	        			}
+//	        		}
+//	        	}
+//	        	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
+//	        	
+//	        	fingerprint[0][countAspects] = "| Length differences            ";
+//	        	for (int j = 0; j < fingerprintTmp.length; j ++){
+//	        		fingerprint[j+1][countAspects] = "|" + countTotal[j][0] + " with " + fingerprintTmp[j][1]
+//	        				+ " (total " + countTotal[j][1] + ")";
+//	        	}
+//	        	countAspects += 1;
+//	        }
         }
-        fingerprintTmp = findKNearestNeighbours(addedMat, searchedGene);
+//        fingerprintTmp = findKNearestNeighbours(addedMat, searchedGene);
     	fingerprintTmp = orderByHighestValues(fingerprintTmp);
     	fingerprintTmp = trimMatrix(fingerprintTmp, kNearestGene);
     	
@@ -617,17 +565,17 @@ public class Like27Jan {
         		+ (t2 - t1) + "ms to read in the config file & query settings\n"
         		+ (t3 - t2) + "ms to generate matrices out of the query\n"
         		+ (t4 - t3) + "ms to generate the similarity matrix addedMat\n"
-        		+ (t5 - t4) + "ms to find most similar set of genes (" + testSet.length + " genes in the testSet, " + kNearestSet + " nearest neighbours)\n"
+//        		+ (t5 - t4) + "ms to find most similar set of genes (" + testSet.length + " genes in the testSet, " + kNearestSet + " nearest neighbours)\n"
         		+ (t6 - t5) + "ms to generate the fingerprint (" + kNearestGene + " nearest neighbours)\n" 
         		+ (t6 - t1) + "ms all together"); 
 
     }
 
     
-    public static String[][] calculateMatrix(String[][] matrix) {
+    public static Map<Point, String> calculateMatrix(Map<Point, String> matrix) {
     	// Compare matrix matrix to all other Genes
     	
-    	String[][] simMat = new String[matrix.length+1][matrix.length+1];
+    	Map<Point, String> simMat = new HashMap<Point, String>();
     	for (int i = 0; i < matrix.length; i++){
     		simMat[0][i+1] = matrix[i][0];
     		simMat[i+1][0] = matrix[i][0];

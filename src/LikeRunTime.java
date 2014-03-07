@@ -201,6 +201,8 @@ public class LikeRunTime {
         return mostSimilarSet2;
     }
     
+    // commonMat 100k * ~10
+    // mostSimilarSet 500 ^2 
     public static Map<Integer,Map<String,ArrayList<String>>> findCommonItems(Map<Point,ArrayList<String>> commonMat, String[] testSet, String[][] mostSimilarSet){
     	Map<Integer,Map<String,ArrayList<String>>> commonItems = new HashMap<Integer,Map<String,ArrayList<String>>>();
     	

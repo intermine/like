@@ -32,6 +32,7 @@ public class LikeRunTime {
     	// Add similarity matrices
      	for (int i = 0; i < views.size()/4; i++){
 	    	// Read in file i
+	    	// takes approx 30sec
      		File file2 = new File("SimilarityMatrix" + i);
 		    FileInputStream f2 = new FileInputStream(file2);
 		    ObjectInputStream s2 = new ObjectInputStream(f2);
@@ -50,9 +51,11 @@ public class LikeRunTime {
         long t10 = System.currentTimeMillis();
         out.print((t10-t9) + "ms to find the most similar genes to the testSet\n");
         
+        // takes approx 300sec
         for (int i = 0; i < views.size()/4; i++){
         	long t11 = System.currentTimeMillis();
 	        File file1 = new File("CommonItems" + i);
+	            // file input is long
 		    FileInputStream f1 = new FileInputStream(file1);
 		    ObjectInputStream s1 = new ObjectInputStream(f1);
 		    Map<Point,ArrayList<String>> commonMat = (Map<Point,ArrayList<String>>)s1.readObject();
@@ -60,6 +63,7 @@ public class LikeRunTime {
 		    long t12 = System.currentTimeMillis();
 		    out.print((t12-t11) + "ms to read in the commonItems file\n");
 		    
+		    // expensive
 		    Map<Integer,Map<String,ArrayList<String>>> commonItems = findCommonItems(commonMat,testSet,mostSimilarSet);
 		    long t13 = System.currentTimeMillis();
 		    out.print((t13-t12) + "ms to find the common items\n");

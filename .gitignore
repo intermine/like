@@ -1,0 +1,13 @@
+bin/
+dist/
+client-dist/
+build/
+client-build/
+*.log
+*.log.*
+.settings
+.eclipse
+executeLog*
+*.class
+productionLog
+*~

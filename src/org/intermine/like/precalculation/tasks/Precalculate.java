@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
+//import org.apache.log4j.Logger;
 import org.intermine.like.precalculation.Precalculation;
 import org.intermine.like.precalculation.utils.Matrices;
 import org.intermine.like.precalculation.utils.Coordinates;
@@ -53,7 +53,7 @@ public final class Precalculate
         System.out.print((t2 - t1) + "ms to read the property file" + "\n");
 
         long t24 = 0;
-        for (int i = 0; i < views.size() / 3; i++) {
+        for (int i = 0; i < views.size() / 4; i++) {
             Map<Coordinates, Integer> matrix = new HashMap<Coordinates, Integer>();
             Map<Coordinates, ArrayList<Integer>> commonMat =
                     new HashMap<Coordinates, ArrayList<Integer>>();
@@ -66,7 +66,7 @@ public final class Precalculate
             long t4 = System.currentTimeMillis();
             System.out.print((t4 - t3) + "ms to build query " + i + "\n");
 
-            if ("category".equals(views.get(new Coordinates(i, 2)))) {
+            if ("category".equals(views.get(new Coordinates(i, 3)))) {
                 t4 = System.currentTimeMillis();
 
                 // Generate matrix i out of the query
@@ -94,7 +94,7 @@ public final class Precalculate
                 System.out.print((t6 - t5) + "ms to find common items " + i + "\n");
                 matrix = new HashMap<Coordinates, Integer>();
 
-                File commonItems = new File("CommonItems" + i);
+                File commonItems = new File("build/CommonItems" + i);
                 FileOutputStream f1 = new FileOutputStream(commonItems);
                 ObjectOutputStream s1 = new ObjectOutputStream(f1);
                 s1.writeObject(commonMat);
@@ -120,7 +120,15 @@ public final class Precalculate
                 System.out.print((t9 - t8) + "ms to normalise matrix " + i + "\n");
                 simMat = new HashMap<Coordinates, Integer>();
 
-                File similarityMatrix = new File("SimilarityMatrix" + i);
+//                System.out.print("\nnormMat:\n");
+//                for (int j = 0; j < 40; j++) {
+//                    for (int k = 0; k < 40; k++) {
+//                        System.out.print(normMat.get(new Coordinates(j, k)) + " ");
+//                    }
+//                    System.out.print("\n");
+//                }
+
+                File similarityMatrix = new File("build/SimilarityMatrix" + i);
                 FileOutputStream f2 = new FileOutputStream(similarityMatrix);
                 ObjectOutputStream s2 = new ObjectOutputStream(f2);
                 s2.writeObject(normMat);
@@ -130,7 +138,7 @@ public final class Precalculate
                 normMat = new HashMap<Coordinates, Integer>();
             }
 
-            if ("count".equals(views.get(new Coordinates(i, 2)))) {
+            if ("count".equals(views.get(new Coordinates(i, 3)))) {
                 long t11 = System.currentTimeMillis();
 
                 // Generate matrix i out of the query
@@ -149,7 +157,7 @@ public final class Precalculate
                 long t13 = System.currentTimeMillis();
                 System.out.print((t13 - t12) + "ms to find common items " + i + "\n");
 
-                File commonItems = new File("CommonItems" + i);
+                File commonItems = new File("build/CommonItems" + i);
                 FileOutputStream f1 = new FileOutputStream(commonItems);
                 ObjectOutputStream s1 = new ObjectOutputStream(f1);
                 s1.writeObject(commonMat);
@@ -170,7 +178,15 @@ public final class Precalculate
 //                s3.writeObject(simMat);
 //                s3.close();
 
-                File similarityMatrix = new File("SimilarityMatrix" + i);
+                System.out.print("\nsimMat:\n");
+                for (int j = 0; j < 40; j++) {
+                    for (int k = 0; k < 40; k++) {
+                        System.out.print(simMat.get(new Coordinates(j, k)) + " ");
+                    }
+                    System.out.print("\n");
+                }
+
+                File similarityMatrix = new File("build/SimilarityMatrix" + i);
                 FileOutputStream f2 = new FileOutputStream(similarityMatrix);
                 ObjectOutputStream s2 = new ObjectOutputStream(f2);
                 s2.writeObject(simMat);
@@ -180,7 +196,7 @@ public final class Precalculate
                 simMat = new HashMap<Coordinates, Integer>();
             }
 
-            if ("presence".equals(views.get(new Coordinates(i, 2)))) {
+            if ("presence".equals(views.get(new Coordinates(i, 3)))) {
                 long t18 = System.currentTimeMillis();
 
                 // Generate matrix i out of the query
@@ -199,7 +215,7 @@ public final class Precalculate
                 long t20 = System.currentTimeMillis();
                 System.out.print((t20 - t19) + "ms to find common items " + i + "\n");
 
-                File commonItems = new File("CommonItems" + views.get(new Coordinates(i, 0)));
+                File commonItems = new File("build/CommonItems" + views.get(new Coordinates(i, 0)));
                 FileOutputStream f1 = new FileOutputStream(commonItems);
                 ObjectOutputStream s1 = new ObjectOutputStream(f1);
                 s1.writeObject(commonMat);
@@ -220,8 +236,16 @@ public final class Precalculate
 //                s3.writeObject(simMat);
 //                s3.close();
 
+                System.out.print("\nsimMat:\n");
+                for (int j = 0; j < 40; j++) {
+                    for (int k = 0; k < 40; k++) {
+                        System.out.print(simMat.get(new Coordinates(j, k)) + " ");
+                    }
+                    System.out.print("\n");
+                }
+
                 File similarityMatrix =
-                        new File("SimilarityMatrix" + views.get(new Coordinates(i, 0)));
+                        new File("build/SimilarityMatrix" + views.get(new Coordinates(i, 0)));
                 FileOutputStream f2 = new FileOutputStream(similarityMatrix);
                 ObjectOutputStream s2 = new ObjectOutputStream(f2);
                 s2.writeObject(simMat);

@@ -56,18 +56,20 @@ public class Precalculation
         Map<Coordinates, String> views = new HashMap<Coordinates, String>();
 
         Properties prop = new Properties();
-        String configFileName = "like.properties";
+        String configFileName = "like_config.properties";
         ClassLoader classLoader = Precalculation.class.getClassLoader();
         InputStream configStream = classLoader.getResourceAsStream(configFileName);
         prop.load(configStream);
 
         int countViews = 0;
-        for (int i = 0; i < prop.size() / 3; i++) {
+        for (int i = 0; i < prop.size() / 4; i++) {
             if (prop.getProperty("query." + i + ".required") != null) {
                 views.put(new Coordinates(countViews, 0),
                         prop.getProperty("query." + i + ".number"));
                 views.put(new Coordinates(countViews, 1), prop.getProperty("query." + i + ".id"));
-                views.put(new Coordinates(countViews, 2), prop.getProperty("query." + i + ".type"));
+                views.put(new Coordinates(countViews, 2),
+                        prop.getProperty("query." + i + ".constraint"));
+                views.put(new Coordinates(countViews, 3), prop.getProperty("query." + i + ".type"));
                 countViews += 1;
             }
         }
@@ -95,13 +97,25 @@ public class Precalculation
 
         // Add order by
         pq.addOrderBy("Gene.primaryIdentifier", OrderDirection.ASC);
+
         // Filter the results with the following constraints:
-//        pq.addConstraint(Constraints.eq("Gene.organism.name", "Drosophila melanogaster"));
-        pq.addConstraint(Constraints.eq("Gene.organism.name", "Drosophila melanogaster"), "A");
-//        pq.addConstraint(Constraints.neq("Gene.symbol", "*a*"), "B");
-        pq.addConstraint(Constraints.eq("Gene.symbol", "*z*"), "B");
-        // Specify how these constraints should be combined.
-        pq.setConstraintLogic("A and B");
+        if ("Gene.goAnnotation.ontologyTerm.parents.id".equals(views.get(new Coordinates(i, 1)))) {
+            pq.addConstraint(Constraints.eq("Gene.organism.name", "Drosophila melanogaster"), "A");
+//          pq.addConstraint(Constraints.neq("Gene.symbol", "*a*"), "B");
+            pq.addConstraint(Constraints.eq("Gene.symbol", "*z*"), "B");
+            // Specify how these constraints should be combined.
+            pq.addConstraint(Constraints.eq("Gene.goAnnotation.ontologyTerm.parents.namespace",
+                    views.get(new Coordinates(i, 2))), "C");
+            // Specify how these constraints should be combined.
+            pq.setConstraintLogic("A and B and C");
+        }
+        else {
+            pq.addConstraint(Constraints.eq("Gene.organism.name", "Drosophila melanogaster"), "A");
+//          pq.addConstraint(Constraints.neq("Gene.symbol", "*a*"), "B");
+            pq.addConstraint(Constraints.eq("Gene.symbol", "*z*"), "B");
+            // Specify how these constraints should be combined.
+            pq.setConstraintLogic("A and B");
+        }
 
         // Outer Joins
         // Show all information about these relationships if they exist, but do not require that
@@ -201,9 +215,9 @@ public class Precalculation
      */
     public Map<Coordinates, Integer> runQueryCount(List<Object> rows) {
         Map<Coordinates, Integer> matrix = new HashMap<Coordinates, Integer>();
-        int tmpRow = 0;
+        int currentRow = 0;
         int highestIndex = -1;
-        int countColumn = 0;
+        int latestColumn = 0;
 
         for (Object o: rows) {
             List<Object> row = (List<Object>) o;
@@ -214,7 +228,7 @@ public class Precalculation
             for (Map.Entry<Coordinates, Integer> entry : matrix.entrySet()) {
                 if (entry.getKey().getKey() == 0) {
                     if (entry.getValue() == subject.getId()) {
-                        tmpRow = entry.getKey().getKey();
+                        currentRow = entry.getKey().getKey();
                         isSaved = true;
                         break;
                     }
@@ -224,17 +238,17 @@ public class Precalculation
                 }
             }
             if (!isSaved) {
-                tmpRow = highestIndex + 1;
-                countColumn = 1;
-                matrix.put(new Coordinates(tmpRow, 0), subject.getId());
+                currentRow = highestIndex + 1;
+                latestColumn = 1;
+                matrix.put(new Coordinates(currentRow, 0), subject.getId());
             }
 
             for (Object rawRow : relatedItems) {
                 List<InterMineObject> subRow = (List<InterMineObject>) rawRow;
                 for (InterMineObject related: subRow) {
                     if (related != null) {
-                        matrix.put(new Coordinates(tmpRow, countColumn), related.getId());
-                        countColumn += 1;
+                        matrix.put(new Coordinates(currentRow, latestColumn), related.getId());
+                        latestColumn += 1;
                     }
                 }
             }
@@ -250,9 +264,9 @@ public class Precalculation
      */
     public Map<Coordinates, Integer> runQueryPresence(List<Object> rows){
         Map<Coordinates, Integer> matrix = new HashMap<Coordinates, Integer>();
-        int tmpRow = 0;
+        int currentRow = 0;
         int highestIndex = -1;
-        int countColumn = 0;
+        int latestColumn = 0;
 
         for (Object o: rows) {
             List<Object> row = (List<Object>) o;
@@ -263,7 +277,7 @@ public class Precalculation
             for (Map.Entry<Coordinates, Integer> entry : matrix.entrySet()) {
                 if (entry.getKey().getValue() == 0) {
                     if (entry.getValue() == item.getId()) {
-                        tmpRow = entry.getKey().getKey();
+                        currentRow = entry.getKey().getKey();
                         isSaved = true;
                         break;
                     }
@@ -273,17 +287,17 @@ public class Precalculation
                 }
             }
             if (!isSaved) {
-                tmpRow = highestIndex + 1;
-                countColumn = 1;
-                matrix.put(new Coordinates(tmpRow, 0), item.getId());
+                currentRow = highestIndex + 1;
+                latestColumn = 1;
+                matrix.put(new Coordinates(currentRow, 0), item.getId());
             }
 
             for (Object rawRow : relatedItems) {
                 List<InterMineObject> subRow = (List<InterMineObject>) rawRow;
                 for (InterMineObject related: subRow) {
                     if (related != null) {
-                        matrix.put(new Coordinates(tmpRow, countColumn), related.getId());
-                        countColumn += 1;
+                        matrix.put(new Coordinates(currentRow, latestColumn), related.getId());
+                        latestColumn += 1;
                     }
                 }
             }

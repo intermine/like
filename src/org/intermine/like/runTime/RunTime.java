@@ -11,12 +11,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.intermine.like.Response.LikeResult;
 import org.intermine.like.precalculation.utils.Coordinates;
 import org.intermine.like.runTime.utils.Methods;
 //import org.apache.log4j.Logger;
-import org.intermine.like.runTime.utils.Result;
 
 /**
+ * Perform the query and print the rows of results.
  *
  * @author selma
  *
@@ -31,15 +32,27 @@ public final class RunTime
     }
 
     /**
-     * Perform the query and print the rows of results.
-     * @param args command line arguments
+     *
+     * @param searchedGenIDs command line arguments
+     * @return a list of the similar genes with their ratings. There is the total rating and
+     * the pairwise ratings. E.g.:
+     * searched gene IDs: 111, 222, 333
+     * similar gene IDs:  total rating:  pairwise ratings:
+     *         999              9         4 from 111; 3 from 222; 2 from 333
+     *         888              8         4 from 111; 4 from 222;
+     *         777              7         7 from 222;
+     *         666              6         4 from 222; 2 from 333;
+     *         000              0         has nothing in common with any of the searched genes.
+     *
+     * The list is ordered from highest to lowest regarding to the total rating.
+     * This answers the question: How similar are the searched and the result genes?
+     * Also the result contains the pairwise common item IDs.
+     * This answers the question: Why are the searched and the result genes similar?
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    public static void main(String[] args) throws IOException, ClassNotFoundException {
-// Input //
-        // Search for similar genes to the testSet
-        Integer[] testSet = {1007396, 1204707, 1035230};
+    public static LikeResult calculate(Integer[] searchedGenIDs)
+            throws IOException, ClassNotFoundException {
         long t1 = System.currentTimeMillis();
         // read properties
         Map<Coordinates, String> views = Methods.getProperties();
@@ -48,16 +61,24 @@ public final class RunTime
 
         // Add similarity matrices
         Map<Coordinates, Integer> addedMat = new HashMap<Coordinates, Integer>();
-        for (int i = 0; i < views.size() / 3; i++) {
+        for (int i = 0; i < views.size() / 4; i++) {
             long t3 = System.currentTimeMillis();
             // Read in file i
-            File file2 = new File("SimilarityMatrix" + views.get(new Coordinates(i, 0)));
+            File file2 = new File("build/SimilarityMatrix" + views.get(new Coordinates(i, 0)));
             FileInputStream f2 = new FileInputStream(file2);
             ObjectInputStream s2 = new ObjectInputStream(f2);
             HashMap<Coordinates, Integer> normMat = (HashMap<Coordinates, Integer>) s2.readObject();
             s2.close();
             long t4 = System.currentTimeMillis();
             System.out.print((t4 - t3) + "ms to read in the normMat " + i + "\n");
+
+            System.out.print("\n");
+            for (int k = 0; k < 40; k++) {
+                for (int j = 0; j < 40; j++) {
+                    System.out.print(normMat.get(new Coordinates(k, j)) + " ");
+                }
+                System.out.print("\n");
+            }
 
             // Add similarity matrices
             addedMat = Methods.addMatrices(addedMat, normMat);
@@ -71,17 +92,16 @@ public final class RunTime
 //            s.writeObject(addedMat);
 //            s.close();
         }
-
 //        System.out.print("\n");
 //        for (int i = 0; i < 40; i++) {
 //            for (int j = 0; j < 40; j++) {
-//                System.out.print(addedMat.get(new Pair(i, j)) + " ");
+//                System.out.print(addedMat.get(new Coordinates(i, j)) + " ");
 //            }
 //            System.out.print("\n");
 //        }
         long t6 = System.currentTimeMillis();
         Map<Integer, Map<Integer, Map<Integer, Integer>>> similarSet =
-                Methods.findSimilarSet(addedMat, testSet);
+                Methods.findSimilarSet(addedMat, searchedGenIDs);
 
 //         File similarityMatrix = new File("similarSet");
 //        FileOutputStream f = new FileOutputStream(similarityMatrix);
@@ -100,14 +120,15 @@ public final class RunTime
 //        s1.close();
 
         long t7 = System.currentTimeMillis();
-        System.out.print((t7 - t6) + "ms to find the most similar genes to the testSet\n");
+        System.out.print((t7 - t6) + "ms to find the most similar genes to the searchedGenIDs\n");
         addedMat = new HashMap<Coordinates, Integer>();
 
         long t9 = 0;
-        Map<Coordinates, ArrayList<Integer>> addedCommonMat = new HashMap<Coordinates, ArrayList<Integer>>();
-        for (int i = 0; i < views.size() / 3; i++) {
+        Map<Coordinates, ArrayList<Integer>> addedCommonMat =
+                new HashMap<Coordinates, ArrayList<Integer>>();
+        for (int i = 0; i < views.size() / 4; i++) {
             long t8 = System.currentTimeMillis();
-            File file1 = new File("CommonItems" + views.get(new Coordinates(i, 0)));
+            File file1 = new File("build/CommonItems" + views.get(new Coordinates(i, 0)));
             FileInputStream f2 = new FileInputStream(file1);
             ObjectInputStream s2 = new ObjectInputStream(f2);
             Map<Coordinates, ArrayList<Integer>> commonMat =
@@ -128,7 +149,7 @@ public final class RunTime
         }
 
         Map<Integer, Map<Integer, ArrayList<Integer>>> commonItems =
-                Methods.getCommonItems(addedCommonMat, testSet);
+                Methods.getCommonItems(addedCommonMat, searchedGenIDs);
         long t10 = System.currentTimeMillis();
         System.out.print((t10 - t9) + "ms to find the common items " + "\n");
 
@@ -142,7 +163,7 @@ public final class RunTime
         System.out.print("\n-> " + (t11 - t1) + "ms for the run time calculations" + "\n");
 
 // Output //
-        Result result = new Result(totalRatingSet, similarSet, commonItems);
+        LikeResult result = new LikeResult(totalRatingSet, similarSet, commonItems);
 
 //        Integer[][] resultGenes = result.getMostSimilarGenes();
 //        File similarityMatrix2 = new File("resultGenes");
@@ -158,93 +179,6 @@ public final class RunTime
 //        s3.writeObject(resultItems);
 //        s3.close();
 
-        System.out.print("\ntotalRatingSet:\n");
-        for (int i = 0; i < totalRatingSet.length; i++) {
-            for (int j = 0; j < 2; j++) {
-                System.out.print(totalRatingSet[i][j] + " ");
-            }
-            System.out.print("\n");
-        }
-
-        System.out.print("\nsimilarSet:\n");
-        for (int i = 0; i < totalRatingSet.length; i++) {
-//            System.out.print(entry.getKey() + " ");
-            Map<Integer, Map<Integer, Integer>> tmp = similarSet.get(totalRatingSet[i][0]);
-            for (Map.Entry<Integer, Map<Integer, Integer>> entry2 : tmp.entrySet()) {
-                System.out.print(entry2.getKey() + " because: ");
-                Map<Integer, Integer> tmp2 = entry2.getValue();
-                for (Map.Entry<Integer, Integer> entry3 : tmp2.entrySet()) {
-                    System.out.print(entry3.getKey() + " with rating " + entry3.getValue() + "; ");
-                }
-            }
-            System.out.print("\n");
-        }
-
-//        System.out.print("\nsimilarSet: " + similarSet[0].length + " " + similarSet.length );
-        Map<Integer, ArrayList<Integer>> result1 = result.getCommonItems(1038571);
-        System.out.print("\nklick on 1038571: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result1.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result2 = result.getCommonItems(1112303);
-        System.out.print("\nklick on 1112303: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result2.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result3 = result.getCommonItems(1069318);
-        System.out.print("\nklick on 1069318: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result3.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result4 = result.getCommonItems(1204707);
-        System.out.print("\nklick on 1204707: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result4.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result5 = result.getCommonItems(1007396);
-        System.out.print("\nklick on 1007396: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result5.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result6 = result.getCommonItems(1037459);
-        System.out.print("\nklick on 1037459: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result6.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result7 = result.getCommonItems(1079460);
-        System.out.print("\nklick on 1079460: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result7.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result8 = result.getCommonItems(1355928);
-        System.out.print("\nklick on 1355928: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result8.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result9 = result.getCommonItems(1079057);
-        System.out.print("\nklick on 1079057: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result9.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result10 = result.getCommonItems(1018517);
-        System.out.print("\nklick on 1018517: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result10.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result11 = result.getCommonItems(1014174);
-        System.out.print("\nklick on 1014174: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result11.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result12 = result.getCommonItems(1021573);
-        System.out.print("\nklick on 1021573: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result12.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
-        Map<Integer, ArrayList<Integer>> result13 = result.getCommonItems(1076450);
-        System.out.print("\nklick on 1076450: \n");
-        for (Map.Entry<Integer, ArrayList<Integer>> entry : result13.entrySet()) {
-            System.out.print(entry.getKey() + " " + entry.getValue() + "\n");
-        }
+        return result;
     }
 }

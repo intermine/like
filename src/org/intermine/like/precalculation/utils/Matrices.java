@@ -22,7 +22,6 @@ import java.util.Map;
  */
 public final class Matrices
 {
-
     private Matrices() {
         // Don't.
     }

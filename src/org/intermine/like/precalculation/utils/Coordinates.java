@@ -3,8 +3,15 @@ package org.intermine.like.precalculation.utils;
 import java.io.Serializable;
 import java.util.Map.Entry;
 
-// TODO rename this coordinates
-public final class Coordinates implements Entry<Integer, Integer>, Serializable {
+/**
+ * Builds a pair of coordinates. So, a matrix can be simulated in a HashMap. Where these
+ * Coordinates are the key.
+ *
+ * @author selma
+ *
+ */
+public final class Coordinates implements Entry<Integer, Integer>, Serializable
+{
 
     /**
     * Needed for Serializable
@@ -13,6 +20,12 @@ public final class Coordinates implements Entry<Integer, Integer>, Serializable 
 
     private final int x, y;
 
+    /**
+     * Construct a pair of coordinates.
+     *
+     * @param x coordinate
+     * @param y coordinate
+     */
     public Coordinates(int x, int y) {
         this.x = x;
         this.y = y;

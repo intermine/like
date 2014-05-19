@@ -22,6 +22,13 @@ import java.util.Map;
  */
 public final class Matrices
 {
+    // The gene ID is always in column zero
+    private static final int SUBJECT_ID_COLUMN = 0;
+    // For rectangular matrices the gene ID is also in row zero
+    private static final int SUBJECT_ID_ROW = 0;
+    private static final int MIN_RATING = 0;
+    private static final int MAX_RATING = 100;
+
     private Matrices() {
         // Don't.
     }
@@ -40,33 +47,43 @@ public final class Matrices
 
             @Override
             public void loopAction(Map<Coordinates, ArrayList<Integer>> newMatrix,
-                    Map<Coordinates, Integer> matrix, Coordinates relationShip, Integer objId) {
-                final Map<Integer, ArrayList<Integer>> count =
+                    Map<Coordinates, Integer> matrix, Coordinates coordinatesOuterGeneID) {
+                final Map<Integer, ArrayList<Integer>> commonToOuter =
                         new HashMap<Integer, ArrayList<Integer>>();
 
-                int objA = relationShip.getKey(),
-                    objB = objId.intValue();
+                int xCoordinateOuter = coordinatesOuterGeneID.getKey();
 
                 for (Map.Entry<Coordinates, Integer> inner : matrix.entrySet()) {
-                    if (inner.getKey().getKey() == objA) {
+                    int xCoordinate = inner.getKey().getKey();
+                    // if inner is in the same row than the current outer gene ID
+                    if (xCoordinate == xCoordinateOuter) {
                         for (Map.Entry<Coordinates, Integer> inner2 : matrix.entrySet()) {
-                            if (relationShip != inner2.getKey()
+                            // if inner2 has not the same coordinates than inner2
+                            // and if the items (e.g. pathways) have the same ID
+                            // -> save the items, they are common
+                            if (coordinatesOuterGeneID != inner2.getKey()
                                     && inner.getValue().equals(inner2.getValue())) {
                                 ArrayList<Integer> commonItems;
-                                if (!count.containsKey(inner2.getKey().getKey())) {
+                                int xCoordinate2 = inner2.getKey().getKey();
+                                // check, if the corresponding gene ID is already saved
+                                if (!commonToOuter.containsKey(xCoordinate2)) {
+                                    // if "no": create new list
                                     commonItems = new ArrayList<Integer>();
-                                    count.put(inner2.getKey().getKey(), commonItems);
+                                    commonToOuter.put(inner2.getKey().getKey(), commonItems);
                                     commonItems.add(inner2.getValue());
                                 } else {
-                                    commonItems = count.get(inner2.getKey().getKey());
+                                    // if "yes": add the common item to the list
+                                    commonItems = commonToOuter.get(inner2.getKey().getKey());
                                     commonItems.add(inner2.getValue());
                                 }
                             }
                         }
                     }
                 }
-                for (Map.Entry<Integer, ArrayList<Integer>> entry : count.entrySet()) {
-                    newMatrix.put(new Coordinates(objA + 1, entry.getKey() + 1), entry.getValue());
+                // Transfer the information to the commonMat in the outer loop
+                for (Map.Entry<Integer, ArrayList<Integer>> entry : commonToOuter.entrySet()) {
+                    newMatrix.put(new Coordinates(xCoordinateOuter + 1, entry.getKey() + 1),
+                            entry.getValue());
                 }
 
             }
@@ -87,21 +104,29 @@ public final class Matrices
 
             @Override
             public void loopAction(Map<Coordinates, ArrayList<Integer>> newMatrix,
-                    Map<Coordinates, Integer> matrix, Coordinates relationShip, Integer objId) {
-                int objA = relationShip.getKey(),
-                    objB = objId.intValue();
-
+                    Map<Coordinates, Integer> matrix, Coordinates coordinatesOuterGeneID) {
+                int xCoordinateOuter = coordinatesOuterGeneID.getKey();
 
                 for (final Map.Entry<Coordinates, Integer> inner : matrix.entrySet()) {
-                    if (inner.getKey().getValue() != 0 && inner.getKey().getKey() == objA) {
+                    int xCoordinate = inner.getKey().getKey();
+                    // if inner is not a gene ID and
+                    // and if inner is in the same row than the current outer gene ID
+                    // -> save the items, they are common
+                    if (xCoordinate != SUBJECT_ID_COLUMN && xCoordinate == xCoordinateOuter) {
                         ArrayList<Integer> commonItems;
-                        if (!newMatrix.containsKey(new Coordinates(objA + 1, objA + 1))) {
+                        // check, if the corresponding gene ID is already saved
+                        if (!newMatrix.containsKey(new Coordinates(xCoordinateOuter + 1,
+                                xCoordinateOuter + 1))) {
+                            // if "no": create new list
                             commonItems = new ArrayList<Integer>();
-                            newMatrix.put(new Coordinates(objA + 1, objA + 1), commonItems);
+                            newMatrix.put(new Coordinates(xCoordinateOuter + 1,
+                                    xCoordinateOuter + 1), commonItems);
                             commonItems.add(inner.getValue());
                         }
                         else {
-                            commonItems = newMatrix.get(new Coordinates(objA + 1, objA + 1));
+                            // if "yes": add the common item to the list
+                            commonItems = newMatrix.get(new Coordinates(xCoordinateOuter + 1,
+                                    xCoordinateOuter + 1));
                             commonItems.add(inner.getValue());
                         }
                     }
@@ -128,18 +153,24 @@ public final class Matrices
      */
     private static Map<Coordinates, ArrayList<Integer>> commonMatrixLoop(
             Map<Coordinates, Integer> matrix, MatrixOperation operation) {
+        // The rectangular matrix to return
         Map<Coordinates, ArrayList<Integer>> commonMat =
                 new HashMap<Coordinates, ArrayList<Integer>>();
         for (final Map.Entry<Coordinates, Integer> outer : matrix.entrySet()) {
-            if (outer.getKey().getValue() == 0) {
+            int xCoordinate = outer.getKey().getKey();
+            int yCoordinate = outer.getKey().getValue();
+            if (yCoordinate == SUBJECT_ID_COLUMN) {
+                // Transfer the gene IDs and save in ArrayLists
                 ArrayList<Integer> geneInColumn = new ArrayList<Integer>();
                 ArrayList<Integer> geneInRow = new ArrayList<Integer>();
-                commonMat.put(new Coordinates(0, outer.getKey().getKey() + 1), geneInColumn);
-                commonMat.put(new Coordinates(outer.getKey().getKey() + 1, 0), geneInRow);
-                geneInColumn.add(matrix.get(new Coordinates(outer.getKey().getKey(), 0)));
-                geneInRow.add(matrix.get(new Coordinates(outer.getKey().getKey(), 0)));
+                commonMat.put(new Coordinates(SUBJECT_ID_ROW, xCoordinate + 1), geneInColumn);
+                commonMat.put(new Coordinates(xCoordinate + 1, SUBJECT_ID_COLUMN), geneInRow);
+                geneInColumn.add(matrix.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
+                geneInRow.add(matrix.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
 
-                operation.loopAction(commonMat, matrix, outer.getKey(), outer.getValue());
+                // Perform the loopAction to find common items (e.g. pathways) for each subject
+                // (gene) of the outer loop
+                operation.loopAction(commonMat, matrix, outer.getKey());
             }
         }
         return commonMat;
@@ -158,10 +189,14 @@ public final class Matrices
         Map<Coordinates, Integer> simMat = new HashMap<Coordinates, Integer>();
 
         for (Map.Entry<Coordinates, ArrayList<Integer>> entry : commonMat.entrySet()) {
-            if (entry.getKey().getKey() == 0 || entry.getKey().getValue() == 0) {
+            // Transfer the gene IDs
+            int xCoordinate = entry.getKey().getKey();
+            int yCoordinate = entry.getKey().getValue();
+            if (xCoordinate == SUBJECT_ID_ROW || yCoordinate == SUBJECT_ID_COLUMN) {
                 simMat.put(entry.getKey(), entry.getValue().get(0));
             }
             else {
+                // Save the number of common items
                 simMat.put(entry.getKey(), entry.getValue().size());
             }
         }
@@ -176,40 +211,52 @@ public final class Matrices
      * gene IDs and pairwise similarity ratings between the genes.
      */
     public static Map<Coordinates, Integer> findSimilarityCount(Map<Coordinates, Integer> matrix) {
-        Map<Coordinates, Integer> difMat = new HashMap<Coordinates, Integer>();
+        Map<Coordinates, Integer> countedItems = new HashMap<Coordinates, Integer>();
         Map<Coordinates, Integer> simMat = new HashMap<Coordinates, Integer>();
 
+        // Count the items (e.g. pathways) for each gene
         for (Map.Entry<Coordinates, Integer> entry : matrix.entrySet()) {
-            if (entry.getKey().getValue() == 0) {
-                difMat.put(entry.getKey(), entry.getValue());
+            int xCoordinate = entry.getKey().getKey();
+            int yCoordinate = entry.getKey().getValue();
+            if (yCoordinate == SUBJECT_ID_COLUMN) {
+                countedItems.put(entry.getKey(), entry.getValue());
                 int count = 0;
                 for (Map.Entry<Coordinates, Integer> entry2 : matrix.entrySet()) {
                     if (entry.getKey().getKey() == entry2.getKey().getKey()) {
                         count += 1;
                     }
                 }
-                difMat.put(new Coordinates(entry.getKey().getKey(), 1), count - 1);
+                // "count - 1" because the gene ID is not part of the items (e.g. pathways)
+                countedItems.put(new Coordinates(xCoordinate, 1), count - 1);
             }
         }
 
-        for (Map.Entry<Coordinates, Integer> entry : difMat.entrySet()) {
-            if (entry.getKey().getValue() == 0) {
-                simMat.put(new Coordinates(0, entry.getKey().getKey() + 1),
-                        difMat.get(new Coordinates(entry.getKey().getKey(), 0)));
-                simMat.put(new Coordinates(entry.getKey().getKey() + 1, 0),
-                        difMat.get(new Coordinates(entry.getKey().getKey(), 0)));
+        // Build a rectangular matrix
+        for (Map.Entry<Coordinates, Integer> outer : countedItems.entrySet()) {
+            int xCoordinate = outer.getKey().getKey();
+            int yCoordinate = outer.getKey().getValue();
+            // Transfer the gene IDs
+            if (yCoordinate == SUBJECT_ID_COLUMN) {
+                simMat.put(new Coordinates(SUBJECT_ID_ROW, xCoordinate + 1),
+                        countedItems.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
+                simMat.put(new Coordinates(xCoordinate + 1, SUBJECT_ID_COLUMN),
+                        countedItems.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
             }
-            else {
+            else { // If outer contains counted item
                 int rating;
-                for (Map.Entry<Coordinates, Integer> entry2 : difMat.entrySet()) {
-                    if (entry2.getKey().getValue() == 1 && entry.getValue() != 0
-                            && entry2.getValue() != 0) {
-                        rating = Math.abs(100 * entry2.getValue()) / entry.getValue();
-                        if (rating > 100) {
-                            rating = 100;
+                for (Map.Entry<Coordinates, Integer> inner : countedItems.entrySet()) {
+                    int xCoordinateInner = inner.getKey().getKey();
+                    int yCoordinateInner = inner.getKey().getValue();
+                    // Only transfer non-zero items -> makes the simMat more sparse
+                    if (yCoordinateInner == 1 && outer.getValue() != SUBJECT_ID_COLUMN
+                            && inner.getValue() != SUBJECT_ID_COLUMN) {
+                        // Row-wise normalisation
+                        rating = Math.abs(MAX_RATING * inner.getValue()) / outer.getValue();
+                        if (rating > MAX_RATING) {
+                            rating = MAX_RATING;
                         }
-                        simMat.put(new Coordinates(entry.getKey().getKey() + 1,
-                                entry2.getKey().getKey() + 1), rating);
+                        simMat.put(new Coordinates(xCoordinate + 1,
+                                xCoordinateInner + 1), rating);
                     }
                 }
             }
@@ -230,13 +277,15 @@ public final class Matrices
         Map<Coordinates, Integer> simMat = new HashMap<Coordinates, Integer>();
 
         for (Map.Entry<Coordinates, Integer> entry : matrix.entrySet()) {
-            if (entry.getKey().getValue() == 0){
+            int xCoordinate = entry.getKey().getKey();
+            int yCoordinate = entry.getKey().getValue();
+            if (yCoordinate == SUBJECT_ID_COLUMN) {
                 hasMat.put(entry.getKey(), entry.getValue());
-                if (matrix.get(new Coordinates(entry.getKey().getKey(), 1)) == null) {
-                    hasMat.put(new Coordinates(entry.getKey().getKey(), 1), 0);
+                if (matrix.get(new Coordinates(xCoordinate, 1)) == null) {
+                    hasMat.put(new Coordinates(xCoordinate, 1), 0);
                 }
                 else {
-                    hasMat.put(new Coordinates(entry.getKey().getKey(), 1), 1);
+                    hasMat.put(new Coordinates(xCoordinate, 1), 1);
                 }
             }
         }
@@ -251,22 +300,26 @@ public final class Matrices
         }
 
         for (Map.Entry<Coordinates, Integer> entry : hasMat.entrySet()) {
-            if (entry.getKey().getValue() == 0) {
-                simMat.put(new Coordinates(0, entry.getKey().getKey() + 1),
-                        hasMat.get(new Coordinates(entry.getKey().getKey(), 0)));
-                simMat.put(new Coordinates(entry.getKey().getKey() + 1, 0),
-                        hasMat.get(new Coordinates(entry.getKey().getKey(), 0)));
+            int xCoordinate = entry.getKey().getKey();
+            int yCoordinate = entry.getKey().getValue();
+            if (yCoordinate == 0) {
+                simMat.put(new Coordinates(SUBJECT_ID_ROW, xCoordinate + 1),
+                        hasMat.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
+                simMat.put(new Coordinates(xCoordinate + 1, SUBJECT_ID_COLUMN),
+                        hasMat.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
             }
             else {
-                for (Map.Entry<Coordinates, Integer> entry2 : hasMat.entrySet()) {
-                    if (entry2.getKey().getValue() == 1) {
-                        if (entry2.getValue().equals(entry.getValue())) {
-                            simMat.put(new Coordinates(entry.getKey().getKey() + 1,
-                                    entry2.getKey().getKey() + 1), 100);
+                for (Map.Entry<Coordinates, Integer> inner : hasMat.entrySet()) {
+                    int xCoordinateInner = inner.getKey().getKey();
+                    int yCoordinateInner = inner.getKey().getValue();
+                    if (inner.getKey().getValue() == 1) {
+                        if (inner.getValue().equals(entry.getValue())) {
+                            simMat.put(new Coordinates(xCoordinate + 1,
+                                    inner.getKey().getKey() + 1), MAX_RATING);
                         }
                         else {
-                            simMat.put(new Coordinates(entry.getKey().getKey() + 1,
-                                    entry2.getKey().getKey() + 1), 0);
+                            simMat.put(new Coordinates(xCoordinate + 1,
+                                    inner.getKey().getKey() + 1), MIN_RATING);
                         }
                     }
                 }
@@ -276,7 +329,7 @@ public final class Matrices
     }
 
     /**
-     * Normalises the input matrix column-wise.
+     * Normalises the input matrix row-wise.
      * E.g. given matrix:        ->   normalised matrix:
      *   -   gene1 gene2 gene3          -   gene1 gene2 gene3
      * gene1   5     2   null         gene1  5/5   2/5  null
@@ -284,21 +337,24 @@ public final class Matrices
      * gene3  null   1    3           gene3  null  1/3  3/3
      *
      * @param matrix containing all gene IDs and pairwise similarity ratings between the genes.
-     * @return the input matrix normalised.
+     * @return the input matrix normalised (with values between 0 and 100)
      */
     public static Map<Coordinates, Integer> normalise(Map<Coordinates, Integer> matrix) {
         Map<Coordinates, Integer> normMat = new HashMap<Coordinates, Integer>();
         for (Map.Entry<Coordinates, Integer> entry : matrix.entrySet()) {
-            if (entry.getKey().getValue() == 0) {
-                normMat.put(new Coordinates(0, entry.getKey().getKey()),
-                        matrix.get(new Coordinates(entry.getKey().getKey(), 0)));
-                normMat.put(new Coordinates(entry.getKey().getKey(), 0),
-                        matrix.get(new Coordinates(entry.getKey().getKey(), 0)));
+            // Transfer the gene IDs
+            int xCoordinate = entry.getKey().getKey();
+            int yCoordinate = entry.getKey().getValue();
+            if (yCoordinate == SUBJECT_ID_COLUMN) {
+                normMat.put(new Coordinates(SUBJECT_ID_ROW, xCoordinate),
+                        matrix.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
+                normMat.put(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN),
+                        matrix.get(new Coordinates(xCoordinate, SUBJECT_ID_COLUMN)));
             }
-            if (entry.getKey().getKey() != 0 && entry.getKey().getValue() != 0) {
-                normMat.put(new Coordinates(entry.getKey().getKey(), entry.getKey().getValue()),
-                        entry.getValue() * 100 / matrix.get(
-                                new Coordinates(entry.getKey().getKey(), entry.getKey().getKey())));
+            // Calculations for normalisation
+            if (xCoordinate != SUBJECT_ID_ROW && yCoordinate != SUBJECT_ID_COLUMN) {
+                normMat.put(entry.getKey(), entry.getValue() * MAX_RATING / matrix.get(
+                                new Coordinates(xCoordinate, xCoordinate)));
             }
         }
         return normMat;
@@ -319,10 +375,9 @@ public final class Matrices
         * containing gene IDs and the ArrayLists of related items, that genes have in common.
         * @param matrix containing all genes and their related items.
         * @param relationShip coordinates of a gene ID
-        * @param objId corresponding gene ID
         */
         void loopAction(Map<Coordinates, ArrayList<Integer>> newMatrix,
-                Map<Coordinates, Integer> matrix, Coordinates relationShip, Integer objId);
+                Map<Coordinates, Integer> matrix, Coordinates relationShip);
 
     }
 }

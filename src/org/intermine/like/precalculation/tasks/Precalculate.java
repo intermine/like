@@ -8,6 +8,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Result;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.TransformerFactoryConfigurationError;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.intermine.like.Storing.Storing;
 //import org.apache.log4j.Logger;
 import org.intermine.like.precalculation.Precalculation;
 import org.intermine.like.precalculation.utils.Matrices;
@@ -74,13 +89,13 @@ public final class Precalculate
                 long t5 = System.currentTimeMillis();
                 System.out.print((t5 - t4) + "ms to run query " + i + "\n");
 
-                System.out.print("\nmatrix:\n");
-                for (int j = 0; j < 40; j++) {
-                    for (int k = 0; k < 40; k++) {
-                        System.out.print(matrix.get(new Coordinates(j, k)) + " ");
-                    }
-                    System.out.print("\n");
-                }
+//                System.out.print("\nmatrix:\n");
+//                for (int j = 0; j < 40; j++) {
+//                    for (int k = 0; k < 40; k++) {
+//                        System.out.print(matrix.get(new Coordinates(j, k)) + " ");
+//                    }
+//                    System.out.print("\n");
+//                }
 
 //                File queryOut = new File("matrix" + i);
 //                FileOutputStream f = new FileOutputStream(queryOut);
@@ -94,11 +109,20 @@ public final class Precalculate
                 System.out.print((t6 - t5) + "ms to find common items " + i + "\n");
                 matrix = new HashMap<Coordinates, Integer>();
 
-                File commonItems = new File("build/CommonItems" + i);
-                FileOutputStream f1 = new FileOutputStream(commonItems);
-                ObjectOutputStream s1 = new ObjectOutputStream(f1);
-                s1.writeObject(commonMat);
-                s1.close();
+//                System.out.print("\ncommonMat:\n");
+//                for (int j = 0; j < 30; j++) {
+//                    for (int k = 0; k < 30; k++) {
+//                        System.out.print(commonMat.get(new Coordinates(j, k)) + " ");
+//                    }
+//                    System.out.print("\n");
+//                }
+
+/////////////////////////////////////////////////////////////
+//                File commonItems = new File("build/CommonItems" + i);
+//                FileOutputStream f1 = new FileOutputStream(commonItems);
+//                ObjectOutputStream s1 = new ObjectOutputStream(f1);
+//                s1.writeObject(commonMat);
+//                s1.close();
                 long t7 = System.currentTimeMillis();
                 System.out.print((t7 - t6) + "ms to store common items " + i + "\n");
 
@@ -120,22 +144,72 @@ public final class Precalculate
                 System.out.print((t9 - t8) + "ms to normalise matrix " + i + "\n");
                 simMat = new HashMap<Coordinates, Integer>();
 
-//                System.out.print("\nnormMat:\n");
-//                for (int j = 0; j < 40; j++) {
-//                    for (int k = 0; k < 40; k++) {
-//                        System.out.print(normMat.get(new Coordinates(j, k)) + " ");
-//                    }
-//                    System.out.print("\n");
-//                }
+                System.out.print("\nnormMat:\n");
+                for (int j = 0; j < 40; j++) {
+                    for (int k = 0; k < 40; k++) {
+                        System.out.print(normMat.get(new Coordinates(j, k)) + " ");
+                    }
+                    System.out.print("\n");
+                }
+// map to xml
+                DocumentBuilder builder = null;
+                builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+                Document document = builder.newDocument();
 
-                File similarityMatrix = new File("build/SimilarityMatrix" + i);
-                FileOutputStream f2 = new FileOutputStream(similarityMatrix);
-                ObjectOutputStream s2 = new ObjectOutputStream(f2);
-                s2.writeObject(normMat);
-                s2.close();
+                Element root = document.createElement("person");
+                for (Coordinates key : normMat.keySet()) {
+
+                    Integer value = normMat.get(key);
+
+                    Element newNode = document.createElement("entry");
+                    Element newKey = document.createElement("key");
+                    Element newValue = document.createElement("value");
+
+                    newKey.setTextContent(key.toString());
+                    newValue.setTextContent(value.toString());
+
+                    newNode.appendChild(newKey);
+                    newNode.appendChild(newValue);
+
+                    root.appendChild(newNode);
+
+                }
+                document.appendChild(root);
+
+                Transformer transformer = TransformerFactory.newInstance().newTransformer();
+                Source source = new DOMSource(document);
+                File file = new File("persons.xml");
+                Result result = new StreamResult(file);
+                transformer.transform(source, result);
+
+
+//                File similarityMatrix = new File("build/SimilarityMatrix" + i);
+//                FileOutputStream f2 = new FileOutputStream(similarityMatrix);
+//                ObjectOutputStream s2 = new ObjectOutputStream(f2);
+//                s2.writeObject(normMat);
+//                s2.close();
                 long t10 = System.currentTimeMillis();
                 System.out.print((t10 - t9) + "ms to store similarity matrix " + i + "\n");
                 normMat = new HashMap<Coordinates, Integer>();
+
+
+
+                // read in again: xml to hashmap
+                DocumentBuilder parser = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+                Document documentIN = parser.parse(new File("persons.xml"));
+                System.out.print(documentIN.getElementsByTagName("Pair(40,0)") + "\n");
+                System.out.print(documentIN.getUserData("Pair(40,0)") + "\n");
+                System.out.print(documentIN.getElementById("Pair(40,0)") + "\n");
+                normMat = (Map<Coordinates, Integer>) documentIN;
+
+                System.out.print("\nnormMat:\n");
+                for (int j = 0; j < 40; j++) {
+                    for (int k = 0; k < 40; k++) {
+                        System.out.print(normMat.get(new Coordinates(j, k)) + " ");
+                    }
+                    System.out.print("\n");
+                }
+
             }
 
             if ("count".equals(views.get(new Coordinates(i, 3)))) {
@@ -178,13 +252,13 @@ public final class Precalculate
 //                s3.writeObject(simMat);
 //                s3.close();
 
-                System.out.print("\nsimMat:\n");
-                for (int j = 0; j < 40; j++) {
-                    for (int k = 0; k < 40; k++) {
-                        System.out.print(simMat.get(new Coordinates(j, k)) + " ");
-                    }
-                    System.out.print("\n");
-                }
+//                System.out.print("\nsimMat:\n");
+//                for (int j = 0; j < 40; j++) {
+//                    for (int k = 0; k < 40; k++) {
+//                        System.out.print(simMat.get(new Coordinates(j, k)) + " ");
+//                    }
+//                    System.out.print("\n");
+//                }
 
                 File similarityMatrix = new File("build/SimilarityMatrix" + i);
                 FileOutputStream f2 = new FileOutputStream(similarityMatrix);
@@ -236,13 +310,13 @@ public final class Precalculate
 //                s3.writeObject(simMat);
 //                s3.close();
 
-                System.out.print("\nsimMat:\n");
-                for (int j = 0; j < 40; j++) {
-                    for (int k = 0; k < 40; k++) {
-                        System.out.print(simMat.get(new Coordinates(j, k)) + " ");
-                    }
-                    System.out.print("\n");
-                }
+//                System.out.print("\nsimMat:\n");
+//                for (int j = 0; j < 40; j++) {
+//                    for (int k = 0; k < 40; k++) {
+//                        System.out.print(simMat.get(new Coordinates(j, k)) + " ");
+//                    }
+//                    System.out.print("\n");
+//                }
 
                 File similarityMatrix =
                         new File("build/SimilarityMatrix" + views.get(new Coordinates(i, 0)));
